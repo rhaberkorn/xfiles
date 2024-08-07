@@ -48,7 +48,8 @@
 	X(_XEMBED, NULL)                        \
 	X(_CONTROL_STATUS, NULL)                \
 	X(_CONTROL_CWD, NULL)                   \
-	X(_CONTROL_GOTO, NULL)
+	X(_CONTROL_GOTO, NULL)                  \
+	X(_CONTROL_SORTBY, NULL)
 
 #define RESOURCES                                             \
 	/*            CLASS               NAME             */ \
@@ -62,7 +63,8 @@
 	X(SELECT_FG, "ActiveForeground", "activeForeground")  \
 	X(STATUSBAR, "StatusBarEnable",  "statusBarEnable")   \
 	X(BARSTATUS, "EnableStatusBar",  "enableStatusBar")   \
-	X(OPACITY,   "Opacity",          "opacity")
+	X(OPACITY,   "Opacity",          "opacity")           \
+	X(SORTBY,    "SortBy",           "sortBy")
 
 #define DEF_COLOR_BG    (XRenderColor){ .red = 0x0000, .green = 0x0000, .blue = 0x0000, .alpha = 0xFFFF }
 #define DEF_COLOR_FG    (XRenderColor){ .red = 0xFFFF, .green = 0xFFFF, .blue = 0xFFFF, .alpha = 0xFFFF }
@@ -274,6 +276,8 @@ struct Widget {
 	const char **cliresources;
 
 	char *gototext;
+	char *sortby;
+
 	char ksymbuf[KSYM_BUFSIZE];     /* buffer where the keysym passed to xfilesctl is held */
 
 	struct {
@@ -761,6 +765,9 @@ loadresources(Widget *widget, const char *str)
 			widget->status_enable =  strcasecmp(value, "on") == 0
 			                     || strcasecmp(value, "true") == 0
 			                     || strcmp(value, "1") == 0;
+			break;
+		case SORTBY:
+			widget->sortby = strdup(value);
 			break;
 		default:
 			break;
@@ -1591,6 +1598,7 @@ cleanwidget(Widget *widget)
 	widget->sel = NULL;
 	widget->rectsel = NULL;
 	FREE(widget->gototext);
+	FREE(widget->sortby);
 	FREE(widget->thumbs);
 	FREE(widget->linelen);
 	FREE(widget->nlines);
@@ -2619,6 +2627,15 @@ processevent(Widget *widget, XEvent *ev)
 				widget->atoms[_CONTROL_GOTO],
 				True
 			);
+		} else if (ev->xproperty.window == widget->window &&
+		           ev->xproperty.atom == widget->atoms[_CONTROL_SORTBY]) {
+			FREE(widget->sortby);
+			widget->sortby = gettextprop(
+				widget,
+				widget->window,
+				widget->atoms[_CONTROL_SORTBY],
+				True
+			);
 		}
 		break;
 	case SelectionRequest:
@@ -2989,6 +3006,10 @@ mainmode(Widget *widget, int *selitems, int *nitems, char **text)
 		if (widget->gototext != NULL) {
 			*text = widget->gototext;
 			return WIDGET_GOTO;
+		}
+		if (widget->sortby != NULL) {
+			*text = widget->sortby;
+			return WIDGET_SORTBY;
 		}
 		switch (ev.type) {
 		case KeyPress:
@@ -3673,6 +3694,12 @@ int
 widget_fd(Widget *widget)
 {
 	return widget->fd;
+}
+
+const char *
+widget_get_sortby(Widget *widget)
+{
+	return widget->sortby;
 }
 
 void
